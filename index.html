@@ -17,6 +17,16 @@
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
         }
+        
+        /* 增加 sticky header 的 z-index 層級，確保在滾動時在最上層 */
+        th.sticky {
+            z-index: 20 !important; 
+        }
+        /* 增加 sticky cell 的 z-index 層級 */
+        td.sticky {
+            z-index: 10 !important;
+        }
+        
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -42,9 +52,9 @@
                     <!-- 檔案選擇 -->
                     <div class="flex-grow">
                         <label for="fileInput" class="block text-sm font-medium text-gray-700 mb-1">
-                            選擇 .xlsx 檔案
+                            選擇 .xlsx 或 .csv 檔案
                         </label>
-                        <input type="file" id="fileInput" accept=".xlsx, .xls" class="w-full text-sm text-gray-500
+                        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="w-full text-sm text-gray-500
                             file:mr-4 file:py-2 file:px-4
                             file:rounded-lg file:border-0
                             file:text-sm file:font-semibold
@@ -81,15 +91,15 @@
             <div class="mt-8 pt-8 border-t border-gray-200">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-4">資料合併 (附加第4-10欄)</h2>
                 <p class="text-sm text-gray-600 mb-4">
-                    上傳第二個 .xlsx 檔案。程式會比對 "學校" 及 "校系名稱"，並將此檔案中的第 4-10 欄資料附加到資料庫的對應項目中。
+                    上傳第二個檔案 (.xlsx / .csv)。程式會比對 "學校" 及 "校系名稱"，並將此檔案中的第 4-10 欄資料附加到資料庫的對應項目中。
                 </p>
                 <div class="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
                     <!-- 檔案選擇 2 -->
                     <div class="flex-grow">
                         <label for="fileInput2" class="block text-sm font-medium text-gray-700 mb-1">
-                            選擇合併檔案 (.xlsx)
+                            選擇合併檔案 (.xlsx / .csv)
                         </label>
-                        <input type="file" id="fileInput2" accept=".xlsx, .xls" class="w-full text-sm text-gray-500
+                        <input type="file" id="fileInput2" accept=".xlsx, .xls, .csv" class="w-full text-sm text-gray-500
                             file:mr-4 file:py-2 file:px-4
                             file:rounded-lg file:border-0
                             file:text-sm file:font-semibold
@@ -113,6 +123,15 @@
                 -->
                 <div id="mergeCheckContainer" class="overflow-x-auto mt-6">
                     <!-- "002112" 的合併結果將顯示在這裡 -->
+                </div>
+
+                <!-- 
+                =================================
+                == 未匹配資料 (合併功能)
+                =================================
+                -->
+                <div id="unmatchedMergeContainer" class="overflow-x-auto mt-6">
+                    <!-- 未匹配的合併資料將顯示在這裡 -->
                 </div>
             </div>
 
@@ -229,6 +248,7 @@
             const mergeButton = document.getElementById('mergeButton');
             const mergeStatusMessage = document.getElementById('mergeStatusMessage');
             const mergeCheckContainer = document.getElementById('mergeCheckContainer');
+            const unmatchedMergeContainer = document.getElementById('unmatchedMergeContainer'); // 未匹配資料
             const filterButton1 = document.getElementById('filterButton1');
             const filterStatusMessage = document.getElementById('filterStatusMessage');
             const filterResultsContainer = document.getElementById('filterResultsContainer');
@@ -277,7 +297,7 @@
             // --- 上傳按鈕事件 ---
             uploadButton.addEventListener('click', async () => {
                 if (!fileInput.files || fileInput.files.length === 0) {
-                    statusMessage.textContent = "請先選擇一個 .xlsx 檔案。";
+                    statusMessage.textContent = "請先選擇一個 .xlsx 或 .csv 檔案。";
                     return;
                 }
                 if (!auth.currentUser) {
@@ -350,7 +370,7 @@
             // ---
             mergeButton.addEventListener('click', async () => {
                 if (!fileInput2.files || fileInput2.files.length === 0) {
-                    mergeStatusMessage.textContent = "請先選擇一個合併用的 .xlsx 檔案。";
+                    mergeStatusMessage.textContent = "請先選擇一個合併用的 .xlsx 或 .csv 檔案。";
                     return;
                 }
                 if (!auth.currentUser) {
@@ -362,6 +382,7 @@
                 mergeButton.disabled = true;
                 mergeStatusMessage.textContent = `正在讀取合併檔案 ${file.name}...`;
                 mergeCheckContainer.innerHTML = ''; // 清除上次的檢查結果
+                unmatchedMergeContainer.innerHTML = ''; // 清除上次的未匹配結果
 
                 try {
                     // 1. 讀取 Excel 檔案 (File 2)
@@ -418,6 +439,7 @@
                     let updateCount = 0;
                     let notFoundCount = 0;
                     const updatePromises = [];
+                    const unmatchedMergeData = []; // *** 用於儲存未匹配的資料 ***
 
                     for (const rowM of mergeData) {
                         const key1_Match = rowM[keyHeader1];
@@ -444,6 +466,7 @@
                             updateCount++;
                         } else {
                             notFoundCount++;
+                            unmatchedMergeData.push(rowM); // *** 將未匹配的資料加入陣列 ***
                         }
                     }
 
@@ -457,6 +480,13 @@
 
                     // 6. 顯示 "002112" 的合併結果
                     await fetchAndDisplayMergeCheck("002112");
+
+                    // 7. 顯示未匹配的資料
+                    renderDataAsTable(
+                        unmatchedMergeData, 
+                        unmatchedMergeContainer, 
+                        `合併檔案中未匹配的資料 (共 ${notFoundCount} 筆)`
+                    );
 
 
                 } catch (error) {
@@ -702,7 +732,7 @@
                     const specificData = querySnapshot.docs.map(doc => doc.data());
 
                     // 顯示資料
-                    renderDataAsTable(specificData, mergeCheckContainer, `合併結果檢查 (校系代碼: ${code})`);
+                    renderDataAsTable(specificData, mergeCheckContainer, `合併結果檢查 (校系代G碼: ${code})`);
 
                 } catch (error) {
                     console.error(`查詢 ${code} 失敗:`, error);
@@ -711,7 +741,9 @@
             }
 
 
-            // 將資料渲染為 HTML 表格
+            //
+            // *** 輔助函式：將資料渲染為 HTML 表格 (動態) ***
+            //
             function renderDataAsTable(data, targetElement, title = null) {
                 
                 if (!targetElement) {
@@ -727,6 +759,8 @@
                          message = "範圍内 (11-20筆) 沒有資料可顯示。";
                     } else if (title && title.includes("檢查")) {
                          message = "在資料庫中找不到指定的資料。";
+                    } else if (title && title.includes("未匹配")) {
+                         message = "沒有未匹配的資料。"; // 合併功能的好消息
                     } else {
                         message = "沒有資料可顯示。";
                     }
@@ -734,7 +768,10 @@
                     return;
                 }
 
-                // 取得所有標頭，但不顯示 'originalIndex'
+                // *** 動態檢查：資料是否包含 'originalIndex' ***
+                const hasOriginalIndex = data[0].hasOwnProperty('originalIndex');
+
+                // 取得所有標頭
                 const headers = Object.keys(data[0]).filter(key => key !== 'originalIndex');
                 
                 // 重新排序標頭
@@ -748,6 +785,17 @@
                 moveHeaderToFront("學校");
                 moveHeaderToFront("校系代碼");
 
+                // *** 動態計算 Sticky 欄位的 Left 偏移量 ***
+                const stickyOffsets = {
+                    col0: hasOriginalIndex ? '100px' : '0px',
+                    col1: hasOriginalIndex ? '200px' : '100px',
+                    col2: hasOriginalIndex ? '300px' : '200px',
+                };
+                if (!hasOriginalIndex) {
+                    stickyOffsets.col0 = '0px';
+                    stickyOffsets.col1 = '100px';
+                    stickyOffsets.col2 = '200px';
+                }
 
                 let tableHTML = `
                     ${title ? `<h3 class="text-lg font-semibold text-gray-700 mb-2">${title}</h3>` : ''}
@@ -755,11 +803,19 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+                                    ${hasOriginalIndex ? `
+                                    <th scope="col" class="sticky px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider left-0 bg-gray-50 z-20">
                                         原始行號
                                     </th>
+                                    ` : ''}
+
                                     ${headers.map((header, index) => `
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${index < 3 ? 'sticky bg-gray-50' : ''}" style="left: ${index === 0 ? '100px' : (index === 1 ? '200px' : (index === 2 ? '300px' : 'auto'))}; z-index: ${index < 3 ? 5 : 0};">
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${index < 3 ? 'sticky bg-gray-50 z-10' : ''}" 
+                                            style="left: ${
+                                                index === 0 ? stickyOffsets.col0 : 
+                                                (index === 1 ? stickyOffsets.col1 : 
+                                                (index === 2 ? stickyOffsets.col2 : 'auto'))
+                                            };">
                                             ${header}
                                         </th>
                                     `).join('')}
@@ -768,11 +824,19 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 ${data.map(row => `
                                     <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
+                                        ${hasOriginalIndex ? `
+                                        <td class="sticky px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 left-0 bg-white z-10">
                                             ${row.originalIndex + 2} <!-- +1 (0-based) and +1 (header) -->
                                         </td>
+                                        ` : ''}
+
                                         ${headers.map((header, index) => `
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${index < 3 ? 'sticky bg-white' : ''}" style="left: ${index === 0 ? '100px' : (index === 1 ? '200px' : (index === 2 ? '300px' : 'auto'))}; z-index: ${index < 3 ? 5 : 0};">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${index < 3 ? 'sticky bg-white' : ''}" 
+                                                style="left: ${
+                                                    index === 0 ? stickyOffsets.col0 : 
+                                                    (index === 1 ? stickyOffsets.col1 : 
+                                                    (index === 2 ? stickyOffsets.col2 : 'auto'))
+                                                };">
                                                 ${row[header] !== null && row[header] !== undefined ? row[header] : ''}
                                             </td>
                                         `).join('')}
