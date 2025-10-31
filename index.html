@@ -75,7 +75,7 @@
 
             <!-- 
             =================================
-            == 新增區塊：資料合併
+            == 資料合併
             =================================
             -->
             <div class="mt-8 pt-8 border-t border-gray-200">
@@ -108,7 +108,7 @@
 
                 <!-- 
                 =================================
-                == 新增區塊：合併結果檢查 (002112)
+                == 合併結果檢查 (002112)
                 =================================
                 -->
                 <div id="mergeCheckContainer" class="overflow-x-auto mt-6">
@@ -118,7 +118,7 @@
 
             <!-- 
             =================================
-            == 新增區塊：篩選功能
+            == 篩選功能
             =================================
             -->
             <div class="mt-8 pt-8 border-t border-gray-200">
@@ -140,7 +140,7 @@
 
             <!-- 
             =================================
-            == 匯出資料區塊 (新位置)
+            == 匯出資料區塊
             =================================
             -->
             <div class="mt-8 pt-8 border-t border-gray-200">
@@ -158,7 +158,7 @@
 
         </main>
 
-        <!-- 頁腳 -->
+        <!-- 頁脚 -->
         <footer class="w-full max-w-4xl text-center py-8 mt-12 text-gray-500 text-sm">
             <p>&copy; 2025 原住民外加合併功能. 保留所有權利。</p>
         </footer>
@@ -186,12 +186,11 @@
             deleteDoc,
             setLogLevel,
             updateDoc,
-            query, // *** 新增：用於查詢 ***
-            where  // *** 新增：用於查詢 ***
+            query, // 用於查詢
+            where  // 用於查詢
         } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
         // *** 全域 DOM 元素 (用於 try/catch) ***
-        // 必須在 try 區塊外宣告，才能在 catch 中使用
         const globalStatusMessage = document.getElementById('statusMessage');
 
         try {
@@ -208,7 +207,6 @@
                 measurementId: "G-11HQ8KFNS4"
             };
             
-            // 檢查 firebaseConfig 是否為空或不完整 (基礎檢查)
             if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
                 throw new Error("Firebase 設定 (firebaseConfig) 不完整或遺失。");
             }
@@ -225,20 +223,15 @@
             // --- DOM 元素 ---
             const fileInput = document.getElementById('fileInput');
             const uploadButton = document.getElementById('uploadButton');
-            const statusMessage = document.getElementById('statusMessage'); // 已在外部宣告
+            const statusMessage = document.getElementById('statusMessage'); 
             const resultsContainer = document.getElementById('resultsContainer');
             const fileInput2 = document.getElementById('fileInput2');
             const mergeButton = document.getElementById('mergeButton');
             const mergeStatusMessage = document.getElementById('mergeStatusMessage');
-            
-            // *** 新增：合併檢查 DOM 元素 ***
             const mergeCheckContainer = document.getElementById('mergeCheckContainer');
-
-            // *** 新增篩選 DOM 元素 ***
             const filterButton1 = document.getElementById('filterButton1');
             const filterStatusMessage = document.getElementById('filterStatusMessage');
             const filterResultsContainer = document.getElementById('filterResultsContainer');
-            
             const exportButton = document.getElementById('exportButton');
             const exportStatusMessage = document.getElementById('exportStatusMessage');
 
@@ -247,11 +240,9 @@
             //
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
-                    // 使用者已登入 (可能是匿名的)
                     userId = user.uid;
                     console.log("使用者已認證:", userId);
                 } else {
-                    // 沒有使用者，執行匿名登入
                     try {
                         const userCredential = await signInAnonymously(auth);
                         userId = userCredential.user.uid;
@@ -260,18 +251,14 @@
                         console.error("匿名登入失敗:", error);
                         statusMessage.textContent = `Firebase 認證失敗: ${error.message}`;
                         statusMessage.classList.add('text-red-600');
-                        return; // 登入失敗，停止執行
+                        return; 
                     }
                 }
                 
-                // 只要 userId 存在，就啟用按鈕
                 if (userId) {
                     uploadButton.disabled = false;
                     mergeButton.disabled = false;
-                    
-                    // *** 啟用篩選按鈕 ***
                     filterButton1.disabled = false;
-                    
                     exportButton.disabled = false;
                     statusMessage.textContent = "Firebase 已連線，請選擇檔案。";
                     statusMessage.classList.remove('text-red-600');
@@ -282,10 +269,8 @@
             // 
             // *** 4. 資料庫路徑 ***
             //
-            // 獲取私有集合的路徑
             function getPrivateCollectionPath(collectionName) {
                 if (!userId) throw new Error("使用者未認證 (userId is null)");
-                // 路徑: users/{userId}/{collectionName}
                 return `users/${userId}/${collectionName}`;
             }
 
@@ -309,9 +294,8 @@
                     // 1. 讀取 Excel 檔案
                     const fileData = await readFileAsync(file);
                     const workbook = XLSX.read(fileData, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0]; // 讀取第一個工作表
+                    const sheetName = workbook.SheetNames[0]; 
                     const worksheet = workbook.Sheets[sheetName];
-                    
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
                     if (jsonData.length === 0) {
@@ -324,7 +308,7 @@
                     const dataToUpload = jsonData.map((row, index) => {
                         const newRow = {
                             ...row,
-                            originalIndex: index // 原始索引 (0-based)
+                            originalIndex: index 
                         };
                         
                         if (newRow["校系代碼"] !== undefined && newRow["校系代碼"] !== null) {
@@ -336,7 +320,7 @@
 
                     const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
 
-                    // 2. (重要) 清除舊資料
+                    // 2. 清除舊資料
                     statusMessage.textContent = "正在清除舊資料...";
                     const oldDocsSnapshot = await getDocs(collectionRef);
                     const deletePromises = oldDocsSnapshot.docs.map(d => deleteDoc(d.ref));
@@ -362,7 +346,7 @@
             });
 
             // --- 
-            // --- 合併按鈕事件 (*** 修改邏輯 ***)
+            // --- 合併按鈕事件 (使用 "學校" + "校系名稱" 比對)
             // ---
             mergeButton.addEventListener('click', async () => {
                 if (!fileInput2.files || fileInput2.files.length === 0) {
@@ -395,13 +379,11 @@
                     if (headers.length < 10) {
                         throw new Error("合併檔案的欄位不足 10 欄。");
                     }
-                    const headersToMerge = headers.slice(3, 10); // 第4欄到第10欄
+                    const headersToMerge = headers.slice(3, 10); // 第4欄到第10欄 (索引 3 到 9)
 
-                    // *** 修改：定義比對的鍵值 ***
                     const keyHeader1 = "學校";
                     const keyHeader2 = "校系名稱";
 
-                    // *** 修改：檢查鍵值是否存在 ***
                     if (!headers.includes(keyHeader1) || !headers.includes(keyHeader2)) {
                          throw new Error(`合併檔案中找不到 "${keyHeader1}" 或 "${keyHeader2}" 欄位。`);
                     }
@@ -419,8 +401,7 @@
                         throw new Error("資料庫中沒有可比對的資料。請先上傳主要檔案。");
                     }
                     
-                    // *** 新增：建立一個 Firestore 資料的快查 Map ***
-                    // 為了效能，將現有資料轉換為 Map，鍵為 "學校_校系名稱"
+                    // 建立一個 Firestore 資料的快查 Map
                     const existingDataMap = new Map();
                     for (const doc of existingDocs) {
                         const data = doc.data();
@@ -439,15 +420,13 @@
                     const updatePromises = [];
 
                     for (const rowM of mergeData) {
-                        // *** 修改：取得比對鍵值 ***
                         const key1_Match = rowM[keyHeader1];
                         const key2_Match = rowM[keyHeader2];
                         
                         if (key1_Match === undefined || key1_Match === null || key2_Match === undefined || key2_Match === null) {
-                            continue; // 略過合併檔案中沒有鍵值的行
+                            continue; 
                         }
 
-                        // *** 修改：建立組合鍵 (Composite Key) ***
                         const compositeKeyToMatch = `${String(key1_Match)}_${String(key2_Match)}`;
 
                         // 準備要更新的資料 (Payload)
@@ -458,11 +437,9 @@
                             }
                         }
 
-                        // *** 修改：從 Map 中尋找相符的文件 ***
                         const matchingDocRef = existingDataMap.get(compositeKeyToMatch);
 
                         if (matchingDocRef && Object.keys(updatePayload).length > 0) {
-                            // 找到相符的，準備更新
                             updatePromises.push(updateDoc(matchingDocRef, updatePayload));
                             updateCount++;
                         } else {
@@ -473,13 +450,12 @@
                     // 4. 一次性執行所有更新
                     await Promise.all(updatePromises);
 
-                    // *** 修改：更新狀態訊息 ***
                     mergeStatusMessage.textContent = `合併完成！共 ${updateCount} 筆資料已更新。 ${notFoundCount} 筆資料在資料庫中找不到對應的 "學校" + "校系名稱" 組合。`;
 
                     // 5. 重新整理顯示的資料
                     await fetchAndDisplayData();
 
-                    // *** 新增：顯示 "002112" 的合併結果 ***
+                    // 6. 顯示 "002112" 的合併結果
                     await fetchAndDisplayMergeCheck("002112");
 
 
@@ -492,7 +468,7 @@
             });
 
             // --- 
-            // --- 新增：篩選按鈕 1 事件 
+            // --- 篩選按鈕 1 事件 
             // ---
             filterButton1.addEventListener('click', async () => {
                 if (!auth.currentUser) {
@@ -521,13 +497,11 @@
                     filterStatusMessage.textContent = "正在套用篩選條件...";
                     
                     const filteredData = allData.filter(row => {
-                        // 轉換為數字進行比較
                         const val112_expected = parseFloat(row["112預計通過一階人數"]);
                         const val112_actual = parseFloat(row["112通過一階外加"]);
                         const val113_expected = parseFloat(row["113預計通過一階人數"]);
                         const val113_actual = parseFloat(row["113通過一階外加"]);
 
-                        // 確保所有值都是有效的數字
                         const condition1 = !isNaN(val112_expected) && !isNaN(val112_actual) && val112_expected > val112_actual;
                         const condition2 = !isNaN(val113_expected) && !isNaN(val113_actual) && val113_expected > val113_actual;
 
@@ -539,7 +513,6 @@
 
                     // 4. 顯示結果
                     filterStatusMessage.textContent = `篩選完畢：共找到 ${filteredData.length} 筆符合條件的資料。`;
-                    // *** 呼叫修改後的 renderDataAsTable ***
                     renderDataAsTable(filteredData, filterResultsContainer, "篩選結果 (連兩年一階人數不足)");
 
                 } catch (error) {
@@ -612,7 +585,7 @@
                     return "";
                 }
 
-                // 收集所有標頭，確保順序
+                // 收集所有標頭
                 const allKeys = new Set();
                 jsonData.forEach(row => {
                     Object.keys(row).forEach(key => {
@@ -622,22 +595,19 @@
                     });
                 });
                 
-                // *** 修改：確保 "學校" 和 "校系名稱" 在前面 (如果存在) ***
                 const headers = Array.from(allKeys);
-                if (headers.includes("校系名稱")) {
-                    headers.splice(headers.indexOf("校系名稱"), 1);
-                    headers.unshift("校系名稱");
-                }
-                if (headers.includes("學校")) {
-                    headers.splice(headers.indexOf("學校"), 1);
-                    headers.unshift("學校");
-                }
-                 // 確保 "校系代碼" 在最前面 (如果存在)
-                if (headers.includes("校系代碼")) {
-                    headers.splice(headers.indexOf("校系代碼"), 1);
-                    headers.unshift("校系代碼");
-                }
-
+                
+                // 重新排序標頭，將關鍵欄位放在最前面
+                const moveHeaderToFront = (headerName) => {
+                    if (headers.includes(headerName)) {
+                        headers.splice(headers.indexOf(headerName), 1);
+                        headers.unshift(headerName);
+                    }
+                };
+                
+                moveHeaderToFront("校系名稱");
+                moveHeaderToFront("學校");
+                moveHeaderToFront("校系代碼");
 
                 const csvRows = [];
                 // 標頭行
@@ -648,20 +618,15 @@
                     const values = headers.map(header => {
                         const value = row[header];
                         
-                        // *** 修改：針對 "校系代碼" 特殊處理 ***
                         if (header === "校系代碼") {
                             if (value === null || value === undefined) {
                                 return "";
                             }
-                            // 1. 將 value 轉為字串
                             let stringValue = String(value);
-                            // 2. 逸出字串中的雙引號 " (替換為 "")
                             stringValue = stringValue.replace(/"/g, '""');
-                            // 3. 強制用雙引號 "..." 包裹此欄位，
-                            //    這會告訴 Excel 將其視為文字 (Text)
+                            // 強制用雙引號 "..." 包裹，Excel 會視為文字
                             return `"${stringValue}"`;
                         } else {
-                            // 其他欄位使用標準逸出
                             return escapeCSVValue(value);
                         }
                     });
@@ -672,18 +637,15 @@
                 return "\uFEFF" + csvRows.join('\n');
             }
 
-            // 輔助函式：逸出 CSV 中的特殊字元 (雙引號、逗號、換行)
+            // 輔助函式：逸出 CSV 中的特殊字元
             function escapeCSVValue(value) {
                 if (value === null || value === undefined) {
                     return "";
                 }
                 let stringValue = String(value);
 
-                // 如果值包含 雙引號、逗號 或 換行符號
                 if (stringValue.match(/("|,|\n)/)) {
-                    // 1. 將內部的雙引號替換為兩個雙引號
                     stringValue = stringValue.replace(/"/g, '""');
-                    // 2. 用雙引號將整個值包裹起來
                     stringValue = `"${stringValue}"`;
                 }
                 return stringValue;
@@ -699,7 +661,7 @@
                 });
             }
 
-            // 從 Firestore 擷取並顯示資料
+            // 從 Firestore 擷取並顯示資料 (11-20 筆)
             async function fetchAndDisplayData() {
                 try {
                     const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
@@ -708,7 +670,6 @@
                     const allData = querySnapshot.docs.map(doc => doc.data());
 
                     if (allData.length === 0) {
-                        // *** 呼叫修改後的 renderDataAsTable ***
                         renderDataAsTable([], resultsContainer, "資料預覽（第 11 筆 - 第 20 筆）");
                         return;
                     }
@@ -719,7 +680,6 @@
                     // 取得第 11 筆到第 20 筆 (索引 10 到 19)
                     const displayData = allData.slice(10, 20);
 
-                    // *** 呼叫修改後的 renderDataAsTable ***
                     renderDataAsTable(displayData, resultsContainer, "資料預覽（第 11 筆 - 第 20 筆）");
 
                 } catch (error) { 
@@ -728,8 +688,7 @@
                 }
             }
 
-            // *** // *** 新增：擷取並顯示 "002112" 的合併結果 
-            // ***
+            // 擷取並顯示 "002112" 的合併結果
             async function fetchAndDisplayMergeCheck(code) {
                 if (!code) return;
 
@@ -752,9 +711,7 @@
             }
 
 
-            // *** 修改：將資料渲染為 HTML 表格 ***
-            // 新增 targetElement 參數 (DOM 物件)
-            // 新增 title 參數 (字串)，用於顯示標題
+            // 將資料渲染為 HTML 表格
             function renderDataAsTable(data, targetElement, title = null) {
                 
                 if (!targetElement) {
@@ -762,14 +719,16 @@
                     return;
                 }
 
+                let message = "";
                 if (!data || data.length === 0) {
-                    let message = "沒有資料可顯示。";
                     if (title && title.includes("篩選")) {
                         message = "沒有找到符合篩選條件的資料。";
                     } else if (title && title.includes("預覽")) {
                          message = "範圍内 (11-20筆) 沒有資料可顯示。";
                     } else if (title && title.includes("檢查")) {
                          message = "在資料庫中找不到指定的資料。";
+                    } else {
+                        message = "沒有資料可顯示。";
                     }
                     targetElement.innerHTML = `<p class="text-gray-500">${message}</p>`;
                     return;
@@ -778,45 +737,42 @@
                 // 取得所有標頭，但不顯示 'originalIndex'
                 const headers = Object.keys(data[0]).filter(key => key !== 'originalIndex');
                 
-                // *** 修改：確保 "學校" 和 "校系名稱" 在前面 (如果存在) ***
-                if (headers.includes("校系名稱")) {
-                    headers.splice(headers.indexOf("校系名稱"), 1);
-                    headers.unshift("校系名稱");
-                }
-                if (headers.includes("學校")) {
-                    headers.splice(headers.indexOf("學校"), 1);
-                    headers.unshift("學校");
-                }
-                 // 確保 "校系代碼" 在最前面 (如果存在)
-                if (headers.includes("校系代碼")) {
-                    headers.splice(headers.indexOf("校系代碼"), 1);
-                    headers.unshift("校系代碼");
-                }
+                // 重新排序標頭
+                const moveHeaderToFront = (headerName) => {
+                    if (headers.includes(headerName)) {
+                        headers.splice(headers.indexOf(headerName), 1);
+                        headers.unshift(headerName);
+                    }
+                };
+                moveHeaderToFront("校系名稱");
+                moveHeaderToFront("學校");
+                moveHeaderToFront("校系代碼");
+
 
                 let tableHTML = `
                     ${title ? `<h3 class="text-lg font-semibold text-gray-700 mb-2">${title}</h3>` : ''}
-                    <div class="shadow border-b border-gray-200 sm:rounded-lg">
+                    <div class="shadow border-b border-gray-200 sm:rounded-lg overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
                                         原始行號
                                     </th>
-                                    ${headers.map(header => `
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${headers.map((header, index) => `
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${index < 3 ? 'sticky bg-gray-50' : ''}" style="left: ${index === 0 ? '100px' : (index === 1 ? '200px' : (index === 2 ? '300px' : 'auto'))}; z-index: ${index < 3 ? 5 : 0};">
                                             ${header}
                                         </th>
                                     `).join('')}
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-20HT">
+                            <tbody class="bg-white divide-y divide-gray-200">
                                 ${data.map(row => `
                                     <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
                                             ${row.originalIndex + 2} <!-- +1 (0-based) and +1 (header) -->
                                         </td>
-                                        ${headers.map(header => `
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        ${headers.map((header, index) => `
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${index < 3 ? 'sticky bg-white' : ''}" style="left: ${index === 0 ? '100px' : (index === 1 ? '200px' : (index === 2 ? '300px' : 'auto'))}; z-index: ${index < 3 ? 5 : 0};">
                                                 ${row[header] !== null && row[header] !== undefined ? row[header] : ''}
                                             </td>
                                         `).join('')}
@@ -827,7 +783,6 @@
                     </div>
                 `;
 
-                // *** 修改：使用 targetElement ***
                 targetElement.innerHTML = tableHTML;
             }
         
@@ -838,7 +793,6 @@
                 globalStatusMessage.textContent = `嚴重錯誤：Firebase 初始化失敗。 ${error.message} (請檢查 Console)`;
                 globalStatusMessage.classList.add('text-red-600');
             } else {
-                // 如果連 statusMessage 都找不到 (極不可能)
                 alert(`嚴重錯誤：Firebase 初始化失敗。 ${error.message}`);
             }
         }
