@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原住民外外加合併功能</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS (xlsx.js) 用於讀取 Excel 檔案 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- 引入 Inter 字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* 使用 Noto Sans TC 作為中文字體，Inter 作為英文字體 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- 主要容器 -->
+    <div class="container mx-auto px-4 py-12 min-h-screen flex flex-col items-center">
+        
+        <!-- 頁首 -->
+        <header class="w-full max-w-4xl text-center mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">
+                原住民外加分發結果合併功能
+            </h1>
+           
+        </header>
+
+        <!-- 內容區域 -->
+        <main class="w-full max-w-4xl bg-white p-8 rounded-lg shadow-md flex-grow">
+            
+            <!-- 上傳區域 -->
+            <div class="mb-8 border-b pb-8 border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">資料上傳</h2>
+                <div class="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
+                    <!-- 檔案選擇 -->
+                    <div class="flex-grow">
+                        <label for="fileInput" class="block text-sm font-medium text-gray-700 mb-1">
+                            選擇 .xlsx 檔案
+                        </label>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls" class="w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-lg file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100
+                            border border-gray-300 rounded-lg cursor-pointer
+                        "/>
+                    </div>
+                    <!-- 上傳按鈕 -->
+                    <button id="uploadButton" disabled class="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        上傳並分析
+                    </button>
+                </div>
+                <!-- 狀態訊息 -->
+                <p id="statusMessage" class="mt-4 text-sm text-gray-600">正在初始化 Firebase...</p>
+            </div>
+
+            <!-- 資料顯示區域 -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-800">資料預覽（第 11 筆 - 第 20 筆）</h2>
+                </div>
+                <div id="resultsContainer" class="overflow-x-auto">
+                    <p class="text-gray-500">請先上傳檔案...</p>
+                    <!-- 資料表格將會動態插入到這裡 -->
+                </div>
+            </div>
+
+            <!-- 
+            =================================
+            == 新增區塊：資料合併
+            =================================
+            -->
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">資料合併 (附加第4-10欄)</h2>
+                <p class="text-sm text-gray-600 mb-4">
+                    上傳第二個 .xlsx 檔案。程式會比對 "校系代碼"，並將此檔案中的第 4-10 欄資料附加到資料庫的對應項目中。
+                </p>
+                <div class="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
+                    <!-- 檔案選擇 2 -->
+                    <div class="flex-grow">
+                        <label for="fileInput2" class="block text-sm font-medium text-gray-700 mb-1">
+                            選擇合併檔案 (.xlsx)
+                        </label>
+                        <input type="file" id="fileInput2" accept=".xlsx, .xls" class="w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-lg file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-green-50 file:text-green-700
+                            hover:file:bg-green-100
+                            border border-gray-300 rounded-lg cursor-pointer
+                        "/>
+                    </div>
+                    <!-- 合併按鈕 -->
+                    <button id="mergeButton" disabled class="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        執行合併
+                    </button>
+                </div>
+                <!-- 狀態訊息 2 -->
+                <p id="mergeStatusMessage" class="mt-4 text-sm text-gray-600"></p>
+            </div>
+
+            <!-- 
+            =================================
+            == 匯出資料區塊 (新位置)
+            =================================
+            -->
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">匯出合併資料</h2>
+                <p class="text-sm text-gray-600 mb-4">
+                    完成資料上傳與合併後，您可以將完整的結果匯出為 CSV 檔案。
+                </p>
+                <!-- 匯出按鈕 -->
+                <button id="exportButton" disabled class="px-6 py-2.5 bg-purple-600 text-white font-medium rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    匯出 CSV
+                </button>
+                <!-- 匯出狀態訊息 -->
+                <p id="exportStatusMessage" class="mt-4 text-sm text-gray-600"></p> 
+            </div>
+
+        </main>
+
+        <!-- 頁腳 -->
+        <footer class="w-full max-w-4xl text-center py-8 mt-12 text-gray-500 text-sm">
+            <p>&copy; 2025 原住民外加合併功能. 保留所有權利。</p>
+        </footer>
+
+    </div>
+
+    <!-- Firebase 與應用程式邏輯 -->
+    <script type="module">
+        // 
+        // *** 1. SDK 匯入 v12.5.0 ***
+        //
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            doc,
+            addDoc, 
+            getDocs,
+            deleteDoc,
+            setLogLevel,
+            updateDoc
+        } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+
+        // *** 全域 DOM 元素 (用於 try/catch) ***
+        // 必須在 try 區塊外宣告，才能在 catch 中使用
+        const globalStatusMessage = document.getElementById('statusMessage');
+
+        try {
+            // 
+            // *** 2. Firebase 初始化 (您的個人設定) ***
+            //
+            const firebaseConfig = {
+                apiKey: "AIzaSyBLL-Ureu1Yc9uLnF5Y7NUpHeq439PbsJE",
+                authDomain: "enrollment-datamerge.firebaseapp.com",
+                projectId: "enrollment-datamerge",
+                storageBucket: "enrollment-datamerge.firebasestorage.app",
+                messagingSenderId: "256797047735",
+                appId: "1:256797047735:web:1afe42c92d7a6f409f4632",
+                measurementId: "G-11HQ8KFNS4"
+            };
+            
+            // 檢查 firebaseConfig 是否為空或不完整 (基礎檢查)
+            if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+                throw new Error("Firebase 設定 (firebaseConfig) 不完整或遺失。");
+            }
+
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            setLogLevel('Debug'); // 開啟 Firebase 詳細日誌
+
+            let userId = null;
+            const COLLECTION_NAME = 'excel_data'; // Firestore 集合名稱
+
+            // --- DOM 元素 ---
+            const fileInput = document.getElementById('fileInput');
+            const uploadButton = document.getElementById('uploadButton');
+            const statusMessage = document.getElementById('statusMessage'); // 已在外部宣告
+            const resultsContainer = document.getElementById('resultsContainer');
+            const fileInput2 = document.getElementById('fileInput2');
+            const mergeButton = document.getElementById('mergeButton');
+            const mergeStatusMessage = document.getElementById('mergeStatusMessage');
+            const exportButton = document.getElementById('exportButton');
+            const exportStatusMessage = document.getElementById('exportStatusMessage');
+
+            // 
+            // *** 3. 認證邏輯 (僅使用匿名登入) ***
+            //
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // 使用者已登入 (可能是匿名的)
+                    userId = user.uid;
+                    console.log("使用者已認證:", userId);
+                } else {
+                    // 沒有使用者，執行匿名登入
+                    try {
+                        const userCredential = await signInAnonymously(auth);
+                        userId = userCredential.user.uid;
+                        console.log("已建立匿名登入:", userId);
+                    } catch (error) {
+                        console.error("匿名登入失敗:", error);
+                        statusMessage.textContent = `Firebase 認證失敗: ${error.message}`;
+                        statusMessage.classList.add('text-red-600');
+                        return; // 登入失敗，停止執行
+                    }
+                }
+                
+                // 只要 userId 存在，就啟用按鈕
+                if (userId) {
+                    uploadButton.disabled = false;
+                    mergeButton.disabled = false;
+                    exportButton.disabled = false;
+                    statusMessage.textContent = "Firebase 已連線，請選擇檔案。";
+                    statusMessage.classList.remove('text-red-600');
+                }
+            });
+
+
+            // 
+            // *** 4. 資料庫路徑 ***
+            //
+            // 獲取私有集合的路徑
+            function getPrivateCollectionPath(collectionName) {
+                if (!userId) throw new Error("使用者未認證 (userId is null)");
+                // 路徑: users/{userId}/{collectionName}
+                return `users/${userId}/${collectionName}`;
+            }
+
+            // --- 上傳按鈕事件 ---
+            uploadButton.addEventListener('click', async () => {
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    statusMessage.textContent = "請先選擇一個 .xlsx 檔案。";
+                    return;
+                }
+                if (!auth.currentUser) {
+                    statusMessage.textContent = "尚未連接到資料庫，請稍候...";
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                uploadButton.disabled = true;
+                statusMessage.textContent = `正在讀取 ${file.name}...`;
+                resultsContainer.innerHTML = '<p class="text-gray-500">處理中...</p>';
+
+                try {
+                    // 1. 讀取 Excel 檔案
+                    const fileData = await readFileAsync(file);
+                    const workbook = XLSX.read(fileData, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0]; // 讀取第一個工作表
+                    const worksheet = workbook.Sheets[sheetName];
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        statusMessage.textContent = "檔案是空的，或者第一列沒有標題。";
+                        uploadButton.disabled = false;
+                        return;
+                    }
+                    
+                    // 為每筆資料添加原始索引，並確保 "校系代碼" 為字串
+                    const dataToUpload = jsonData.map((row, index) => {
+                        const newRow = {
+                            ...row,
+                            originalIndex: index // 原始索引 (0-based)
+                        };
+                        
+                        if (newRow["校系代碼"] !== undefined && newRow["校系代碼"] !== null) {
+                            newRow["校系代碼"] = String(newRow["校系代碼"]);
+                        }
+                        
+                        return newRow;
+                    });
+
+                    const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
+
+                    // 2. (重要) 清除舊資料
+                    statusMessage.textContent = "正在清除舊資料...";
+                    const oldDocsSnapshot = await getDocs(collectionRef);
+                    const deletePromises = oldDocsSnapshot.docs.map(d => deleteDoc(d.ref));
+                    await Promise.all(deletePromises);
+
+                    // 3. 寫入所有新資料
+                    statusMessage.textContent = `正在上傳 ${dataToUpload.length} 筆資料...`;
+                    const uploadPromises = dataToUpload.map(docData => addDoc(collectionRef, docData));
+                    await Promise.all(uploadPromises);
+
+                    statusMessage.textContent = `上傳成功！共 ${dataToUpload.length} 筆資料。正在擷取顯示...`;
+
+                    // 4. 擷取並顯示資料 (11-20筆)
+                    await fetchAndDisplayData();
+
+                } catch (error) {
+                    console.error("處理失敗:", error);
+                    statusMessage.textContent = `處理失敗: ${error.message}`;
+                    resultsContainer.innerHTML = '<p class="text-red-500">載入資料失敗。</p>';
+                } finally {
+                    uploadButton.disabled = false;
+                }
+            });
+
+            // --- 
+            // --- 合併按鈕事件 
+            // ---
+            mergeButton.addEventListener('click', async () => {
+                if (!fileInput2.files || fileInput2.files.length === 0) {
+                    mergeStatusMessage.textContent = "請先選擇一個合併用的 .xlsx 檔案。";
+                    return;
+                }
+                if (!auth.currentUser) {
+                    mergeStatusMessage.textContent = "尚未連接到資料庫，請稍候...";
+                    return;
+                }
+
+                const file = fileInput2.files[0];
+                mergeButton.disabled = true;
+                mergeStatusMessage.textContent = `正在讀取合併檔案 ${file.name}...`;
+
+                try {
+                    // 1. 讀取 Excel 檔案 (File 2)
+                    const fileData = await readFileAsync(file);
+                    const workbook = XLSX.read(fileData, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+
+                    const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    if (dataAsArray.length < 2) {
+                        throw new Error("合併檔案為空，或沒有標頭。");
+                    }
+                    
+                    const headers = dataAsArray[0];
+                    if (headers.length < 10) {
+                        throw new Error("合併檔案的欄位不足 10 欄。");
+                    }
+                    const headersToMerge = headers.slice(3, 10); 
+                    const keyHeader = "校系代碼"; 
+
+                    if (!headers.includes(keyHeader)) {
+                         throw new Error(`合併檔案中找不到 "${keyHeader}" 欄位。`);
+                    }
+
+                    const mergeData = XLSX.utils.sheet_to_json(worksheet);
+                    mergeStatusMessage.textContent = `合併檔案讀取完畢。共 ${mergeData.length} 筆。將附加 ${headersToMerge.length} 欄資料 (從 ${headers[3]} 到 ${headers[9]})。`;
+
+                    // 2. 獲取 Firestore 中的現有資料
+                    mergeStatusMessage.textContent = "正在從資料庫擷取現有資料...";
+                    const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
+                    const existingDocsSnapshot = await getDocs(collectionRef);
+                    const existingDocs = existingDocsSnapshot.docs; 
+
+                    if (existingDocs.length === 0) {
+                        throw new Error("資料庫中沒有可比對的資料。請先上傳主要檔案。");
+                    }
+
+                    // 3. 執行比對與更新
+                    mergeStatusMessage.textContent = "正在比對並更新資料...";
+                    let updateCount = 0;
+                    let notFoundCount = 0;
+                    const updatePromises = [];
+
+                    for (const rowM of mergeData) {
+                        const keyToMatch = rowM[keyHeader];
+                        
+                        if (keyToMatch === undefined || keyToMatch === null) {
+                            continue; 
+                        }
+
+                        const keyToMatchString = String(keyToMatch);
+
+                        const updatePayload = {};
+                        for (const header of headersToMerge) {
+                            if (rowM[header] !== undefined) {
+                                updatePayload[header] = rowM[header];
+                            }
+                        }
+
+                        const matchingDoc = existingDocs.find(doc => doc.data()[keyHeader] === keyToMatchString);
+
+                        if (matchingDoc && Object.keys(updatePayload).length > 0) {
+                            const docRef = matchingDoc.ref;
+                            updatePromises.push(updateDoc(docRef, updatePayload));
+                            updateCount++;
+                        } else {
+                            notFoundCount++;
+                        }
+                    }
+
+                    // 4. 一次性執行所有更新
+                    await Promise.all(updatePromises);
+
+                    mergeStatusMessage.textContent = `合併完成！共 ${updateCount} 筆資料已更新。 ${notFoundCount} 筆資料在資料庫中找不到對應的 "校系代碼"。`;
+
+                    // 5. 重新整理顯示的資料
+                    await fetchAndDisplayData();
+
+                } catch (error) {
+                    console.error("合併失敗:", error);
+                    mergeStatusMessage.textContent = `合併失敗: ${error.message}`;
+                } finally {
+                    mergeButton.disabled = false;
+                }
+            });
+
+            // --- 
+            // --- 匯出 CSV 事件 
+            // ---
+            exportButton.addEventListener('click', async () => {
+                if (!auth.currentUser) {
+                    exportStatusMessage.textContent = "尚未連接到資料庫，請稍候...";
+                    return;
+                }
+
+                exportButton.disabled = true;
+                exportStatusMessage.textContent = "正在從資料庫擷取所有資料...";
+
+                try {
+                    // 1. 獲取 Firestore 中的所有資料
+                    const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
+                    const querySnapshot = await getDocs(collectionRef);
+                    
+                    const allData = querySnapshot.docs.map(doc => doc.data());
+
+                    if (allData.length === 0) {
+                        exportStatusMessage.textContent = "資料庫中沒有資料可匯出。";
+                        return;
+                    }
+
+                    // 2. 根據原始索引排序
+                    allData.sort((a, b) => a.originalIndex - b.originalIndex);
+
+                    // 3. 轉換為 CSV
+                    exportStatusMessage.textContent = "正在轉換資料為 CSV 格式...";
+                    const csvString = convertJSONToCSV(allData);
+
+                    // 4. 觸發下載
+                    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'export_data.csv';
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a); 
+
+                    exportStatusMessage.textContent = `成功匯出 ${allData.length} 筆資料。`;
+
+                } catch (error) {
+                    console.error("匯出失敗:", error);
+                    exportStatusMessage.textContent = `匯出失敗: ${error.message}`;
+                } finally {
+                    exportButton.disabled = false;
+                }
+            });
+
+            // 輔助函式：將 JSON 轉換為 CSV
+            function convertJSONToCSV(jsonData) {
+                if (!jsonData || jsonData.length === 0) {
+                    return "";
+                }
+
+                // 收集所有標頭，確保順序
+                const allKeys = new Set();
+                jsonData.forEach(row => {
+                    Object.keys(row).forEach(key => {
+                        if (key !== 'originalIndex') { // 不匯出 originalIndex
+                            allKeys.add(key);
+                        }
+                    });
+                });
+                // 確保 "校系代碼" 在最前面 (如果存在)
+                const headers = Array.from(allKeys);
+                if (headers.includes("校系代碼")) {
+                    headers.splice(headers.indexOf("校系代碼"), 1);
+                    headers.unshift("校系代碼");
+                }
+
+
+                const csvRows = [];
+                // 標頭行
+                csvRows.push(headers.map(h => escapeCSVValue(h)).join(','));
+
+                // 資料行
+                for (const row of jsonData) {
+                    const values = headers.map(header => {
+                        const value = row[header];
+                        
+                        // *** 修改：針對 "校系代碼" 特殊處理 ***
+                        if (header === "校系代碼") {
+                            if (value === null || value === undefined) {
+                                return "";
+                            }
+                            // 1. 將 value 轉為字串
+                            let stringValue = String(value);
+                            // 2. 逸出字串中的雙引號 " (替換為 "")
+                            stringValue = stringValue.replace(/"/g, '""');
+                            // 3. 強制用雙引號 "..." 包裹此欄位，
+                            //    這會告訴 Excel 將其視為文字 (Text)
+                            return `"${stringValue}"`;
+                        } else {
+                            // 其他欄位使用標準逸出
+                            return escapeCSVValue(value);
+                        }
+                    });
+                    csvRows.push(values.join(','));
+                }
+
+                // 加入 BOM (Byte Order Mark) 確保 Excel 正確讀取 UTF-8
+                return "\uFEFF" + csvRows.join('\n');
+            }
+
+            // 輔助函式：逸出 CSV 中的特殊字元 (雙引號、逗號、換行)
+            function escapeCSVValue(value) {
+                if (value === null || value === undefined) {
+                    return "";
+                }
+                let stringValue = String(value);
+
+                // 如果值包含 雙引號、逗號 或 換行符號
+                if (stringValue.match(/("|,|\n)/)) {
+                    // 1. 將內部的雙引號替換為兩個雙引號
+                    stringValue = stringValue.replace(/"/g, '""');
+                    // 2. 用雙引號將整個值包裹起來
+                    stringValue = `"${stringValue}"`;
+                }
+                return stringValue;
+            }
+
+            // 讀取檔案 (File API)
+            function readFileAsync(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error("讀取檔案失敗"));
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            // 從 Firestore 擷取並顯示資料
+            async function fetchAndDisplayData() {
+                try {
+                    const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
+                    const querySnapshot = await getDocs(collectionRef);
+                    
+                    const allData = querySnapshot.docs.map(doc => doc.data());
+
+                    if (allData.length === 0) {
+                        resultsContainer.innerHTML = '<p class="text-gray-500">資料庫中目前沒有資料。</p>';
+                        return;
+                    }
+
+                    // 根據原始索引排序
+                    allData.sort((a, b) => a.originalIndex - b.originalIndex);
+
+                    // 取得第 11 筆到第 20 筆 (索引 10 到 19)
+                    const displayData = allData.slice(10, 20);
+
+                    renderDataAsTable(displayData);
+
+                } catch (error) { 
+                    console.error("擷取資料失敗:", error);
+                    resultsContainer.innerHTML = `<p class="text-red-500">擷取資料失敗: ${error.message}</p>`;
+                }
+            }
+
+            // 將資料渲染為 HTML 表格
+            function renderDataAsTable(data) {
+                if (!data || data.length === 0) {
+                    resultsContainer.innerHTML = '<p class="text-gray-500">範圍內 (11-20筆) 沒有資料可顯示。</p>';
+                    return;
+                }
+
+                // 取得所有標頭，但不顯示 'originalIndex'
+                const headers = Object.keys(data[0]).filter(key => key !== 'originalIndex');
+
+                let tableHTML = `
+                    <div class="shadow border-b border-gray-200 sm:rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        原始行號
+                                    </th>
+                                    ${headers.map(header => `
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            ${header}
+                                        </th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-20HT">
+                                ${data.map(row => `
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            ${row.originalIndex + 2} <!-- +1 (0-based) and +1 (header) -->
+                                        </td>
+                                        ${headers.map(header => `
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                ${row[header] !== null && row[header] !== undefined ? row[header] : ''}
+                                            </td>
+                                        `).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                resultsContainer.innerHTML = tableHTML;
+            }
+        
+        // *** 全域 Try-Catch (捕捉初始化錯誤) ***
+        } catch (error) {
+            console.error("Firebase 初始化失敗:", error);
+            if (globalStatusMessage) {
+                globalStatusMessage.textContent = `嚴重錯誤：Firebase 初始化失敗。 ${error.message} (請檢查 Console)`;
+                globalStatusMessage.classList.add('text-red-600');
+            } else {
+                // 如果連 statusMessage 都找不到 (極不可能)
+                alert(`嚴重錯誤：Firebase 初始化失敗。 ${error.message}`);
+            }
+        }
+
+    </script>
+</body>
+</html>
