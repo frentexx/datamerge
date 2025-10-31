@@ -105,6 +105,15 @@
                 </div>
                 <!-- 狀態訊息 2 -->
                 <p id="mergeStatusMessage" class="mt-4 text-sm text-gray-600"></p>
+
+                <!-- 
+                =================================
+                == 新增區塊：合併結果檢查 (002112)
+                =================================
+                -->
+                <div id="mergeCheckContainer" class="overflow-x-auto mt-6">
+                    <!-- "002112" 的合併結果將顯示在這裡 -->
+                </div>
             </div>
 
             <!-- 
@@ -176,7 +185,9 @@
             getDocs,
             deleteDoc,
             setLogLevel,
-            updateDoc
+            updateDoc,
+            query, // *** 新增：用於查詢 ***
+            where  // *** 新增：用於查詢 ***
         } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
         // *** 全域 DOM 元素 (用於 try/catch) ***
@@ -220,6 +231,9 @@
             const mergeButton = document.getElementById('mergeButton');
             const mergeStatusMessage = document.getElementById('mergeStatusMessage');
             
+            // *** 新增：合併檢查 DOM 元素 ***
+            const mergeCheckContainer = document.getElementById('mergeCheckContainer');
+
             // *** 新增篩選 DOM 元素 ***
             const filterButton1 = document.getElementById('filterButton1');
             const filterStatusMessage = document.getElementById('filterStatusMessage');
@@ -363,6 +377,7 @@
                 const file = fileInput2.files[0];
                 mergeButton.disabled = true;
                 mergeStatusMessage.textContent = `正在讀取合併檔案 ${file.name}...`;
+                mergeCheckContainer.innerHTML = ''; // 清除上次的檢查結果
 
                 try {
                     // 1. 讀取 Excel 檔案 (File 2)
@@ -464,6 +479,10 @@
                     // 5. 重新整理顯示的資料
                     await fetchAndDisplayData();
 
+                    // *** 新增：顯示 "002112" 的合併結果 ***
+                    await fetchAndDisplayMergeCheck("002112");
+
+
                 } catch (error) {
                     console.error("合併失敗:", error);
                     mergeStatusMessage.textContent = `合併失敗: ${error.message}`;
@@ -532,7 +551,6 @@
                 }
             });
 
-            // *** 修正：移除錯誤的 'd' ***
             // --- 
             // --- 匯出 CSV 事件 
             // ---
@@ -710,6 +728,30 @@
                 }
             }
 
+            // *** // *** 新增：擷取並顯示 "002112" 的合併結果 
+            // ***
+            async function fetchAndDisplayMergeCheck(code) {
+                if (!code) return;
+
+                try {
+                    const collectionRef = collection(db, getPrivateCollectionPath(COLLECTION_NAME));
+                    // 建立查詢
+                    const q = query(collectionRef, where("校系代碼", "==", String(code)));
+                    
+                    const querySnapshot = await getDocs(q);
+                    
+                    const specificData = querySnapshot.docs.map(doc => doc.data());
+
+                    // 顯示資料
+                    renderDataAsTable(specificData, mergeCheckContainer, `合併結果檢查 (校系代碼: ${code})`);
+
+                } catch (error) {
+                    console.error(`查詢 ${code} 失敗:`, error);
+                    mergeCheckContainer.innerHTML = `<p class="text-red-500">查詢 ${code} 失敗: ${error.message}</p>`;
+                }
+            }
+
+
             // *** 修改：將資料渲染為 HTML 表格 ***
             // 新增 targetElement 參數 (DOM 物件)
             // 新增 title 參數 (字串)，用於顯示標題
@@ -726,6 +768,8 @@
                         message = "沒有找到符合篩選條件的資料。";
                     } else if (title && title.includes("預覽")) {
                          message = "範圍内 (11-20筆) 沒有資料可顯示。";
+                    } else if (title && title.includes("檢查")) {
+                         message = "在資料庫中找不到指定的資料。";
                     }
                     targetElement.innerHTML = `<p class="text-gray-500">${message}</p>`;
                     return;
